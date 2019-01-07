@@ -1,117 +1,739 @@
----
-title: "Einkommensverteilung in Österreich"
-subtitle: "2063 - Ökonomie der Verteilung"
-author: "Nikolas Kuschnig & Casper Engelen"
-abstract: "Dieses Dokument stellt einige Funktionen von Rmarkdown vor und bietet eine simple Grundstruktur für Länder-Reports."
-keywords: "a, b, c"
-date: '`r format(Sys.time(), "%d %B, %Y")`'
-output: 
-  pdf_document:
-    toc: true
-    includes: 
-      in_header: header.tex
-bibliography: references.bib
----
+#################################### Project Inequality - Primetshofer - Kovacevic ##############################
+############################ Variable description ############################ 
+#pb010 - Year of the Survey
+#pb020 - Country
+#pb030 - Household ID
+#py010G - Employee Cash or near cash income(gross)
+#hy010 - Total Household Gross Income
+#hb020 - Country alphanumeric
+#hb030 - Household ID
+#db020 - Country alphanumeric
+#db030 - Household ID
+#db040 - Region
+############################ Install and load Packages ################################
+install.packages("stringi")
+install.packages("tidyverse")
+install.packages("DBI")
+install.packages("RPostgreSQL")
+install.packages("convey")
+install.packages("dplyr")
+install.packages("survey")
+install.packages("eurostat")
+install.packages("ggplot2")
+install.packages("scales")
+library(survey)
+library(dplyr)
+library(convey)
+library(stringi)
+library(tidyverse)
+library(DBI)
+library(RPostgreSQL)
+library(eurostat)
+library(ggplot2)
+library(scales)
+############################ Fetching data from the database ################################
+pg <- src_postgres(dbname="datacube", host="ineq.wu.ac.at",
+                   user='lvineq',password = 'palma', options="-c search_path=silc")
+############################ Preparing and transforming data ################################
+## Step 1 - General Overview of the base year 2013, EU-Membership
+#personal
+silc.p13 <- tbl(pg, "pp") %>% filter(pb010==2013 & pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py020g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+saveRDS(silc.p13, file="C:/Users/WIN-7/Desktop/Inequality/silc.p13",compress = "xz")
+silc.p13 <- readRDS("C:/Users/WIN-7/Desktop/Inequality/silc.p13")
+#household
+silc.h13 <- tbl(pg, "hh") %>% filter(hb010==2013 & hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+saveRDS(silc.h13, file="C:/Users/WIN-7/Desktop/Inequality/silc.h13",compress = "xz")
+silc.h13 <- readRDS("C:/Users/WIN-7/Desktop/Inequality/silc.h13")
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+#household2
+silc.d13 <- tbl(pg, "dd") %>% filter(db010==2013 & db020 == "HR") %>% select(db010, db020, db030, db040, db090)%>%collect(n = Inf)
 
-\newpage
+#personal2
+silc.r13 <- tbl(pg, "rr") %>%  filter(rb010==2013 & rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>%  collect(n = Inf)
 
-# Rmarkdown Demonstration
+## Step 2 - Pre-EU Membership years
+#personal
+silc.p10 <- tbl(pg, "c10p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+silc.p11 <- tbl(pg, "c11p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+silc.p12 <- tbl(pg, "c12p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+#household
+silc.h10<- tbl(pg, "c10h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+silc.h11<- tbl(pg, "c11h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+silc.h12<- tbl(pg, "c12h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+#personal2
+silc.r10 <- tbl(pg, "c10r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>% collect(n = Inf)
+silc.r11 <- tbl(pg, "c11r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>% collect(n = Inf)
+silc.r12 <- tbl(pg, "c12r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>% collect(n = Inf)
+#household2
+silc.d10 <- tbl(pg, "c10d") %>%  filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>%  collect(n = Inf)
+silc.d11 <- tbl(pg, "c11d") %>%  filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>%  collect(n = Inf)
+silc.d12 <- tbl(pg, "c12d") %>%  filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>%  collect(n = Inf)
+## Step 2 - Post-EU Membership years
+#personal 
+silc.p14 <- tbl(pg, "c14p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+silc.p15 <- tbl(pg, "c15p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+silc.p16 <- tbl(pg, "c16p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+silc.p17 <- tbl(pg, "c17p") %>% filter(pb020 =="HR") %>% select(pb010, pb020, pb030, pb040, pb140, pb150, py010g, py050g, px010, px030, py080g, py090g, py100g, py110g, py120g, py130g, py140g) %>% collect(n = Inf)
+#household
+silc.h14<- tbl(pg, "c14h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+silc.h15<- tbl(pg, "c15h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+silc.h16<- tbl(pg, "c16h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+silc.h17<- tbl(pg, "c17h") %>% filter(hb020 == "HR") %>% select(hb010, hb020, hb030, hy110g, hy040g, hy090g, hy050g, hy060g, hy070g, hy080g, hy120g, hy130g, hy140g,hx040, hx050) %>% collect(n = Inf)
+#household
+silc.d14 <- tbl(pg, "c14d") %>%  filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>% collect(n = Inf)
+silc.d15 <- tbl(pg, "c15d") %>%  filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>%  collect(n = Inf)
+silc.d16 <- tbl(pg, "c16d") %>% filter(db020 == "HR") %>%  select(db010, db020, db030, db040, db090) %>%  collect(n = Inf)
+silc.d17 <- tbl(pg, "c17d") %>%  filter(db020 == "HR") %>% select(db010, db020, db030, db040, db090) %>% collect(n = Inf)
+#personal
+silc.r14 <- tbl(pg, "c14r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>% collect(n = Inf)
+silc.r15 <- tbl(pg, "c15r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>%  collect(n = Inf)
+silc.r16 <- tbl(pg, "c16r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>%  collect(n = Inf)
+silc.r17 <- tbl(pg, "c17r") %>%  filter(rb020 == "HR") %>%  select(rb010, rb020, rb030, rb080, rx030) %>%  collect(n = Inf)
+# Step 3 - Binding Rows and Summaries
+#pp
+silc.pp <- silc.p %>% bind_rows(silc.p10,silc.p11,silc.p12,silc.p13,silc.p14, silc.p15, silc.p16, silc.p17)
+summary(is.na(silc.pp))
+#hh
+silc.hh <- silc.h %>% bind_rows(silc.h10,silc.h11,silc.h12,silc.h13,silc.h14, silc.h15, silc.h16, silc.h17)
+silc.hh$hy070g[is.na(silc.hh$hy070g)] <- 0
+silc.hh$hy120g[is.na(silc.hh$hy120g)] <- 0
+##dd
+silc.dd <- silc.d %>% bind_rows(silc.d10, silc.d11, silc.d12, silc.d13, silc.d14, silc.d15, silc.d16, silc.d17)
+summary(is.na(silc.dd))
+##rr
+silc.rr <- silc.r %>% bind_rows(silc.r10, silc.r11, silc.r12, silc.r13, silc.r14, silc.r15, silc.r16, silc.r17)
+summary(is.na(silc.rr))
+############################ Creation of IDs ################################
+####Now we will create IDs and merge the four data sets p,r,h,d for the years 2010-2017, this will be divided into three sections, Pre-EU Membership, the basyear 2013 and the Post-EU Membership
+### Pre-EU Memebership
+## 2010
+# personal
+silc.pp10 <- silc.p10 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr10 <- silc.r10 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr10 <- left_join(silc.pp10, silc.rr10, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh10 <- silc.h10 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd10 <- silc.d10 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr10 <- silc.pr10 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr10 <- silc.pr10 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh10 <- left_join(silc.pr10, silc.hh10, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd10 <- left_join(silc.prh10, silc.dd10, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd10 <- silc.prhd10 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-```{r, include=FALSE}
-cat("Ausgeführt, nichts angezeigt")
-```
+## 2011
+# personal
+silc.pp11 <- silc.p11 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr11 <- silc.r11 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr11 <- left_join(silc.pp11, silc.rr11, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh11 <- silc.h11 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd11 <- silc.d11 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr11 <- silc.pr11 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr11 <- silc.pr11 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh11 <- left_join(silc.pr11, silc.hh11, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd11 <- left_join(silc.prh11, silc.dd11, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd11 <- silc.prhd11 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-```{r, eval=FALSE}
-cat("Nicht ausgeführt, angezeigt")
-```
+## 2012
+# personal
+silc.pp12 <- silc.p12 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr12 <- silc.r12 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr12 <- left_join(silc.pp12, silc.rr12, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh12 <- silc.h12 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd12 <- silc.d12 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr12 <- silc.pr12 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr12 <- silc.pr12 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh12 <- left_join(silc.pr12, silc.hh12, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd12 <- left_join(silc.prh12, silc.dd12, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd12 <- silc.prhd12 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-```{r echo=FALSE}
-cat("Ausgeführt, Output angezeigt")
-```
+## Baseyear 2013
+# personal
+silc.pp13 <- silc.p13 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr13 <- silc.r13 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr13 <- left_join(silc.pp13, silc.rr13, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh13 <- silc.h13 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd13 <- silc.d13 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr13 <- silc.pr13 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr13 <- silc.pr13 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh13 <- left_join(silc.pr13, silc.hh13, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd13 <- left_join(silc.prh13, silc.dd13, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd13 <- silc.prhd13 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-```{r}
-cat("Ausgeführt, alles angezeigt")
-```
+### Post-EU Memebership
+## 2014
+# personal
+silc.pp14 <- silc.p14 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr14 <- silc.r14 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr14 <- left_join(silc.pp14, silc.rr14, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh14 <- silc.h14 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd14 <- silc.d14 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr14 <- silc.pr14 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr14 <- silc.pr14 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh14 <- left_join(silc.pr14, silc.hh14, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd14 <- left_join(silc.prh14, silc.dd14, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd14 <- silc.prhd14 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-<!-- Kommentare im Dokument -->
+## 2015
+# personal
+silc.pp15 <- silc.p15 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr15 <- silc.r15 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr15 <- left_join(silc.pp15, silc.rr15, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh15 <- silc.h15 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd15 <- silc.d15 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr15 <- silc.pr15 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr15 <- silc.pr15 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh15 <- left_join(silc.pr15, silc.hh15, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd15 <- left_join(silc.prh15, silc.dd15, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd15 <- silc.prhd15 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-Text *kursiv* und **fett**.
+## 2016
+# personal
+silc.pp16 <- silc.p16 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr16 <- silc.r16 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr16 <- left_join(silc.pp16, silc.rr16, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh16 <- silc.h16 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd16 <- silc.d16 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr16 <- silc.pr16 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr16 <- silc.pr16 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh16 <- left_join(silc.pr16, silc.hh16, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd16 <- left_join(silc.prh16, silc.dd16, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd16 <- silc.prhd16 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-R-Code im Text: `r pi`
+## 2017
+# personal
+silc.pp17 <- silc.p17 %>% mutate(personal_id = paste0(pb030, pb010))
+silc.rr17 <- silc.r17 %>% mutate(personal_id = paste0(rb030, rb010))
+silc.pr17 <- left_join(silc.pp17, silc.rr17, by = c("pb030" = "rb030", "pb010" = "rb010"))
+# household
+silc.hh17 <- silc.h17 %>% mutate(id_h = paste0(hb030, hb010))
+silc.dd17 <- silc.d17 %>% mutate(id_h = paste0(db030, db010))
+# Age
+silc.pr17 <- silc.pr17 %>% mutate(id_h = paste0(rx030, pb010))
+silc.pr17 <- silc.pr17 %>% mutate(age = pb010 - rb080)
+# Zusammenführen von pr und h file
+silc.prh17 <- left_join(silc.pr17, silc.hh17, by = c("id_h"))
+# Zusammenführen von prh und d file
+silc.prhd17 <- left_join(silc.prh17, silc.dd17, by = c("id_h"))
+# Dummy fur >= 20 Jahre
+silc.prhd17 <- silc.prhd17 %>% mutate(grownup=ifelse(age >= 20, 1, 0))
 
-LaTeX Formeln inline: ($e = mc^2$) und:
+####################################################################################
+############################ Aggregation of Incomes ################################
+#### Now we will derive the Post-tax disposible income of the household for every year starting from 2010 to 2017 to compare the impact of the EU-Membership
+####Pre-EU Membership
+##2010
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd10 <- silc.prhd10 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd10 <- silc.prhd10 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd10 <- silc.prhd10 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd10$income1 <- NULL
+silc.prhd10$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd10 <- silc.prhd10 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd10 <- silc.prhd10 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd10 <- silc.prhd10 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd10$income2 <- NULL
+silc.prhd10$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd10 <- silc.prhd10 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd10 <- silc.prhd10 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd10 <- silc.prhd10 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-$$\hat{\beta} = (X'X)^{-1}X'Y$$
+##2011
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd11 <- silc.prhd11 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd11 <- silc.prhd11 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd11 <- silc.prhd11 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd11$income1 <- NULL
+silc.prhd11$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd11 <- silc.prhd11 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd11 <- silc.prhd11 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd11 <- silc.prhd11 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd11$income2 <- NULL
+silc.prhd11$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd11 <- silc.prhd11 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd11 <- silc.prhd11 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd11 <- silc.prhd11 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-![Bilder einfügen (xkcd)](img/xkcd_comparison.png){width=60%}
+##2012
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd12 <- silc.prhd12 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd12 <- silc.prhd12 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd12 <- silc.prhd12 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd12$income1 <- NULL
+silc.prhd12$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd12 <- silc.prhd12 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd12 <- silc.prhd12 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd12 <- silc.prhd12 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd12$income2 <- NULL
+silc.prhd12$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd12 <- silc.prhd12 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd12 <- silc.prhd12 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd12 <- silc.prhd12 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-[Links einfügen (Bildquelle)](https://what-if.xkcd.com/118/)
+###Baseyear 2013
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd13 <- silc.prhd13 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd13 <- silc.prhd13 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd13 <- silc.prhd13 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd13$personalinc <- NULL
+silc.prhd13$sum_personalinc <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd13 <- silc.prhd13 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd13 <- silc.prhd13 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd13 <- silc.prhd13 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd13$income2 <- NULL
+silc.prhd13$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd13 <- silc.prhd13 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd13 <- silc.prhd13 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd13 <- silc.prhd13 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-Zitieren aus *BibTeX*:
+####Post-EU Membership
+###2014
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd14 <- silc.prhd14 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd14 <- silc.prhd14 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd14 <- silc.prhd14 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd14$income1 <- NULL
+silc.prhd14$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd14 <- silc.prhd14 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd14 <- silc.prhd14 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd14 <- silc.prhd14 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd14$income2 <- NULL
+silc.prhd14$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd14 <- silc.prhd14 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd14 <- silc.prhd14 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd14 <- silc.prhd14 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-- [@marmot2010fair; @lancee2012income]
-- [@humer2013bedeutung, p. 571]
-- @humer2013bedeutung
+##2015
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd15 <- silc.prhd15 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd15 <- silc.prhd15 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd15 <- silc.prhd15 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd15$income1 <- NULL
+silc.prhd15$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd15 <- silc.prhd15 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd16 <- silc.prhd15 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd15 <- silc.prhd15 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd15$income2 <- NULL
+silc.prhd15$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd15 <- silc.prhd15 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd15 <- silc.prhd15 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd15 <- silc.prhd15 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-Block-Zitate:
+##2016
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd16 <- silc.prhd16 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd16 <- silc.prhd16 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd16 <- silc.prhd16 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd16$income1 <- NULL
+silc.prhd16$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd16 <- silc.prhd16 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd16 <- silc.prhd16 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd16 <- silc.prhd16 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd16$income2 <- NULL
+silc.prhd16$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd16 <- silc.prhd16 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd16 <- silc.prhd16 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd16 <- silc.prhd16 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
 
-> "Don't quote me on that."
+##2017
+## Pre-Tax Factor Income
+# Sum of personal Income = income1
+silc.prhd17 <- silc.prhd17 %>% mutate(personalinc = py010g + py050g + py080g)
+# Sum of Houshold Income
+silc.prhd17 <- silc.prhd17 %>% group_by(id_h) %>% mutate(sum_personalinc = sum(personalinc))
+# End result
+silc.prhd17 <- silc.prhd17 %>% mutate(factorincome = ((sum_personalinc + hy110g + hy040g + hy090g) / hx050))
+silc.prhd17$income1 <- NULL
+silc.prhd17$sum_income1 <- NULL
+## Pre-Tax National Income
+# Sum of personal Income
+silc.prhd17 <- silc.prhd17 %>% mutate(income2 =  factorincome + py090g + py100g)
+# Sum of Houshold Income
+silc.prhd17 <- silc.prhd17 %>% group_by(id_h) %>% mutate(sum_income2 = sum(income2))
+# End result
+silc.prhd17 <- silc.prhd17 %>% mutate(nationalincome = (sum(income2) + hy110g + hy040g + hy090g) / hx050)
+silc.prhd17$income2 <- NULL
+silc.prhd17$sum_income2 <- NULL
+## Post-Tax Disposable Income nach
+# Sum of personal Income
+silc.prhd17 <- silc.prhd17 %>% mutate(income3 = nationalincome + py110g + py120g+ py130g+ py140g)
+# Sum of Houshold Income
+silc.prhd17 <- silc.prhd17 %>% group_by(id_h) %>% mutate(sum_income3 = sum(income3))
+# End result
+silc.prhd17 <- silc.prhd17 %>% mutate(disposibleincome = ((sum_income3 + hy110g + hy040g + hy090g + hy050g + hy060g + hy070g + hy080g - hy120g - hy130g - hy140g) / hx050))
+saveRDS(silc.prhd17, file="C:/Users/WIN-7/Desktop/Inequality/silc.prhd17",compress = "xz")
+silc.prhd17 <- readRDS("C:/Users/WIN-7/Desktop/Inequality/silc.prhd17")
+###########################################################################
+############################ Survey Design ################################
+#### Pre-EU Memebership
+###2010
+## Survey Designs
+silc.prhd.svy10 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd10) %>% convey_prep()
+silc.prhd.svy11 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd11) %>% convey_prep()
+silc.prhd.svy12 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd12) %>% convey_prep()
+silc.prhd.svy13 <- svydesign(ids=~id_h,
+                           strata=~db020,
+                           weights=~db090,
+                           data=silc.prhd13) %>% convey_prep()
+silc.prhd.svy14 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd14) %>% convey_prep()
+silc.prhd.svy15 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd15) %>% convey_prep()
+silc.prhd.svy16 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd16) %>% convey_prep()
+silc.prhd.svy17 <- svydesign(ids=~id_h,
+                             strata=~db020,
+                             weights=~db090,
+                             data=silc.prhd17) %>% convey_prep()
+## Mean of Factor, National und Post Tax Disposable Income 
+# Mean of Factor Incomes
+Mean1 <- c(
+  svymean(~factorincome,silc.prhd.svy10),
+  svymean(~factorincome,silc.prhd.svy11),
+  svymean(~factorincome,silc.prhd.svy12),
+  svymean(~factorincome,silc.prhd.svy13),
+  svymean(~factorincome,silc.prhd.svy14),
+  svymean(~factorincome,silc.prhd.svy15),
+  svymean(~factorincome,silc.prhd.svy16),
+  svymean(~factorincome,silc.prhd.svy17))
+cbind(Mean1)
+plot(Mean1)
+plot(Mean1, main = "Mean of Factor Income over Time " , xlab = "years", ylab = "Mean", type = "p", col = "red")
 
-Ungeordnete Listen:
+# Mean of National Incomes
+Mean2 <- c(
+  svymean(~nationalincome,silc.prhd.svy10),
+  svymean(~nationalincome,silc.prhd.svy11),
+  svymean(~nationalincome,silc.prhd.svy12),
+  svymean(~nationalincome,silc.prhd.svy13),
+  svymean(~nationalincome,silc.prhd.svy14),
+  svymean(~nationalincome,silc.prhd.svy15),
+  svymean(~nationalincome,silc.prhd.svy16),
+  svymean(~nationalincome,silc.prhd.svy17))
+plot(Mean2)
+# Mean of Disposible Income
+Mean3 <- c(
+  svymean(~disposibleincome,silc.prhd.svy11),
+  svymean(~disposibleincome,silc.prhd.svy12),
+  svymean(~disposibleincome,silc.prhd.svy13),
+  svymean(~disposibleincome,silc.prhd.svy14),
+  svymean(~disposibleincome,silc.prhd.svy15),
+  svymean(~disposibleincome,silc.prhd.svy16),
+  svymean(~disposibleincome,silc.prhd.svy17))
+plot(Mean3, main = "Mean" , xlab = "years", ylab = "Gini", type = "line", col = "red")
+## Median of Factor, National und Post Tax Disposable Income
+Median <- c(
+  svyquantile(~factorincome,silc.prhd.svy10,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy11,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy12,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy13,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy14,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy15,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy16,quantile=c(0.5)),
+  svyquantile(~factorincome,silc.prhd.svy17,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy10,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy11,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy12,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy13,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy14,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy15,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy16,quantile=c(0.5)),
+  svyquantile(~nationalincome,silc.prhd.svy17,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy10,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy11,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy12,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy13,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy14,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy15,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy16,quantile=c(0.5)),
+  svyquantile(~disposibleincome,silc.prhd.svy17,quantile=c(0.5)))
+plot(Median, main = "Median of Incomes" , xlab = "years", ylab = "Median", type = "line", col = "red")
+## Gini of Factor, Natonal und Post Tax Disposable Income
+# Gini of the Factor Income
+Gini1 <- c(
+  svygini(~factorincome, silc.prhd.svy10),
+  svygini(~factorincome, silc.prhd.svy11),
+  svygini(~factorincome, silc.prhd.svy12),
+  svygini(~factorincome, silc.prhd.svy13),
+  svygini(~factorincome, silc.prhd.svy14),
+  svygini(~factorincome, silc.prhd.svy15),
+  svygini(~factorincome, silc.prhd.svy16),
+  svygini(~factorincome, silc.prhd.svy17))
+# Gini of the National Income
+Gini2 <- c(
+  svygini(~nationalincome, silc.prhd.svy10),
+  svygini(~nationalincome, silc.prhd.svy11),
+  svygini(~nationalincome, silc.prhd.svy12),
+  svygini(~nationalincome, silc.prhd.svy13),
+  svygini(~nationalincome, silc.prhd.svy14),
+  svygini(~nationalincome, silc.prhd.svy15),
+  svygini(~nationalincome, silc.prhd.svy16),
+  svygini(~nationalincome, silc.prhd.svy17))
+# Gini of the Disposible Income
+Gini3 <- c(
+  svygini(~disposibleincome, silc.prhd.svy10),
+  svygini(~disposibleincome, silc.prhd.svy11),
+  svygini(~disposibleincome, silc.prhd.svy12),
+  svygini(~disposibleincome, silc.prhd.svy13),
+  svygini(~disposibleincome, silc.prhd.svy14),
+  svygini(~disposibleincome, silc.prhd.svy15),
+  svygini(~disposibleincome, silc.prhd.svy16),
+  svygini(~disposibleincome, silc.prhd.svy17))
+plot(Gini1)
+# Plot the Ginis
+plot(Gini1, main = "Gini-Coefficient1" , xlab = "years", ylab = "Gini", type = "line", col = "red")
+plot(Gini2, main = "Gini-Coefficient2" , xlab = "years", ylab = "Gini", type = "line", col = "red")
+plot(Gini3, main = "Gini-Coefficient3" , xlab = "years", ylab = "Gini", type = "line", col = "red")
+# Theil of the Factor Income
+Theil1 <- c(
+  svygei( ~factorincome , subset(silc.prhd.svy10, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy11, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy12, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy13, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy14, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy15, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy16, factorincome > 0), epsilon = 1 ),
+  svygei( ~factorincome , subset(silc.prhd.svy17, factorincome > 0), epsilon = 1 ))
+plot(Theil1, main = "Theil Coefficient of Factor Income" , xlab = "years", ylab = "Theil", type = "line", col = "red")
+Theil3 <- c(
+  svygei( ~disposibleincome , subset(silc.prhd.svy10, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy11, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy12, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy13, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy14, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy15, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy16, disposibleincome > 0), epsilon = 1 ),
+  svygei( ~disposibleincome , subset(silc.prhd.svy17, disposibleincome > 0), epsilon = 1 ))
+plot(Theil3, main = "Theil-Coefficient3" , xlab = "years", ylab = "Theil", type = "line", col = "green")
 
-- Einkommen
-- Kapital
+## Quantil share ratio: Top 20% / Bottom 20%
+TopBottom20 <- c(
+  svyqsr(~disposibleincome,silc.prhd.svy10),
+  svyqsr(~disposibleincome,silc.prhd.svy11),
+  svyqsr(~disposibleincome,silc.prhd.svy12),
+  svyqsr(~disposibleincome,silc.prhd.svy13),
+  svyqsr(~disposibleincome,silc.prhd.svy14),
+  svyqsr(~disposibleincome,silc.prhd.svy15),
+  svyqsr(~disposibleincome,silc.prhd.svy16),
+  svyqsr(~disposibleincome,silc.prhd.svy17))
+TopBottom20
+plot(TopBottom20, main = "TopBottom20%-Ratio" , xlab = "years", ylab = "Ratio", type = "line", col = "blue")
 
-Geordnete Listen:
+## Quantil share ratio: Top 10% / Bottom 10%
+TopBottom10 <- c(
+  svyqsr(~disposibleincome,silc.prhd.svy10, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy11, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy12, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy13, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy14, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy15, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy16, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE),
+  svyqsr(~disposibleincome,silc.prhd.svy17, alpha1 = 0.1, alpha2 = (0.9), na.rm = FALSE))
+TopBottom10
+plot(TopBottom10, main = "TopBottom10%-Ratio" , xlab = "years", ylab = "Ratio", type = "line", col = "blue")
 
-1. Zahlen
-3. sind
-9. egal
+## Quantil sum
+# Top 10%
+Top10 <- c(
+  svytotal(~disposibleincome,subset(silc.prhd.svy10, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy10,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy10),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy11, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy11,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy11),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy12, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy12,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy12),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy13, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy13,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy13),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy14, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy14,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy14),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy15, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy15,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy15),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy16, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy16,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy16),
+  
+  svytotal(~disposibleincome,subset(silc.prhd.svy17, disposibleincome>=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy17,quantile=c(0.9)))))/svytotal(~disposibleincome,silc.prhd.svy17))
+Top10
+plot(Top10, main = "Top10 Income share" , xlab = "years", ylab = "Share", type = "line", col = "blue")
 
-Simple Tabellen:
-<!-- Leerzeichen sind egal -->
+Bottom10 <- c(
+  svytotal(~disposibleincome,subset(silc.prhd.svy10, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy10,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy10),
+  svytotal(~disposibleincome,subset(silc.prhd.svy11, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy11,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy11),
+  svytotal(~disposibleincome,subset(silc.prhd.svy12, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy12,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy12),
+  svytotal(~disposibleincome,subset(silc.prhd.svy13, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy13,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy13),
+  svytotal(~disposibleincome,subset(silc.prhd.svy14, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy14,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy14),
+  svytotal(~disposibleincome,subset(silc.prhd.svy15, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy15,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy15),
+  svytotal(~disposibleincome,subset(silc.prhd.svy16, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy16,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy16),
+  svytotal(~disposibleincome,subset(silc.prhd.svy17, disposibleincome<=as.numeric(svyquantile(~disposibleincome,silc.prhd.svy17,quantile=c(0.1)))))/svytotal(~disposibleincome,silc.prhd.svy17))
+Bottom10
+plot(Bottom10, main = "Bottom10 Income share" , xlab = "years", ylab = "Share", type = "line", col = "blue")
 
-|Country  | Gini  | Theil | QSR |
-| ---     | ---   | ---   | --- |
-| AUT     | 1     | 0.5   | NA  |
+#############################################################################################
 
-R-Plots:
+silc.d1 <- tbl(pg, 'c11d') %>% filter(db020=='HR') %>%
+  select(db010,db020,db030,db040,db090) %>% collect()
 
-```{r fig-rnorm, echo=FALSE, fig.cap="Inklusive Optionen", fig.width=4}
-plot(rnorm(50), rnorm(50))
-```
+silc.p1 <- tbl(pg, 'c11p') %>% filter(pb020=='HR') %>%
+  select(pb020,pb030,px030,pb150,py010g, py050g ,pl060, pl100, pl073, pl074, pl075, pl076, pb140,pb210, pb220a, pe040, pt110, pt120, pt190,pt070,pt090) %>% collect(n=Inf)
+#join register & data
+silc.dp1 <- right_join(silc.d1, silc.p1, by=c('db020'='pb020', 'db030'='px030'))
+#replace NAs in working hours by 0
+silc.dp1$pl060[is.na(silc.dp$pl060)] <- 0
+silc.dp1$pl100[is.na(silc.dp$pl100)] <- 0
+silc.dp1 <- silc.dp1 %>% mutate(totalhours = pl060 + pl100)
+#calculate hourly wage
+silc.dp1 <- silc.dp1 %>% mutate(hwages = py010g / ((pl060+pl100)*pmin(12,(pl073+pl074))*52/12) )
+#pmin vectorized version of min - rowwise evaluation
+#filter only observations with income and working time
+silc.dp1 <- silc.dp1 %>% filter(py010g>0 & pl060>0 & (pl073+pl074)>0)
+#hours per week wrt now
+silc.dp1 <- silc.dp1 %>% filter(pt110>-1 & pt120>-1 & pt070>-1 & pt090>-1 &pt190>-1)
+#generate age and recode gender to factor variable and adding the origin of the parents
+silc.dp1 <- silc.dp1 %>% mutate(age = 2011-pb140, gender = factor(pb150,labels = c('Male','Female')), edu = factor(pe040, labels=c("pre-primary education","lower secondary education","(upper) secondary education","post-secondary non-tertiary education","1st & 2nd stage of tertiary education")),finance = factor(pt190, labels=c("very bad","bad", "m_bad", "m_good","good","very good")))
 
-Potentiell weniger simple Tabellen:
+silc.dp1 <- silc.dp1 %>% mutate(age = 2011-pb140, gender = factor(pb150,labels = c('Male','Female')), edu = factor(pe040, labels=c("pre-primary education","lower secondary education","(upper) secondary education","post-secondary non-tertiary education","1st & 2nd stage of tertiary education")),finance = factor(pt190, labels=c("very bad","bad", "m_bad", "m_good","good","very good")))
+#Adding the educational background of the parents
+silc.dp1 <- silc.dp1 %>% mutate(edu_par = factor(pmax(pt110, pt120), labels=c("analphabet", "low", "med", "high")))
+silc.dp1 <- silc.dp1 %>% mutate(citizenship = factor(pb220a, labels = c("1","2", "3","4")), born = factor(pb210, labels = c("1","2", "3")))
+summary(silc.dp1)
+#svy design
+silc.dp1 <- silc.dp1 %>% mutate(id_h=paste0(db020,db030))
+silc.p.svy <- svydesign(ids=~id_h,
+                        strata=~db040,
+                        weights=~db090,
+                        data=silc.dp) %>% convey_prep()
 
-```{r echo=FALSE, }
-# Read CSV data, "../../" to look two levels upwards
-table <- read.csv("tables/_template-table.csv")
-knitr::kable(table, caption = "Mit Optionen")
-```
+#Creating different regressions with parent_characteristics
+##factor variables are treated differently in regressions - dummies will be created!
+olsp <- lm(log(hwages) ~ edu_par + finance + born, data = silc.dp1)
+olsp2 <- lm(log(hwages) ~ age + gender + edu_par, data = silc.dp1)
+olsp3 <- lm(log(hwages) ~ age + gender + edu_par + finance, data = silc.dp1)
+olsp4 <- lm(log(hwages) ~ age + I(age^2) + edu_par + finance, data = silc.dp1)
+summary(olsp)
+summary(olsp1)
+summary(olsp2)
+summary(olsp3)
+summary(olsp4)
 
-Horizontale Linien:
-
----
-
-\newpage
-
-# Einführung
-
-# Methodologie
-
-## Daten
-
-## Indikatoren
-
-# Ergebnisse
-
-# Zusammenfassung
-
-
-# Literatur
-
-<!-- Leer lassen -->
